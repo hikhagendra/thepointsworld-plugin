@@ -1,4 +1,7 @@
 <?php
+/**
+ * Sync Courses with WooCommerce product
+ */
 function create_or_update_course_woocommerce_product($post_id) {
     if (get_post_type($post_id) != 'course') {
         return;
@@ -43,6 +46,10 @@ function create_or_update_course_woocommerce_product($post_id) {
 }
 add_action('save_post', 'create_or_update_course_woocommerce_product');
 
+
+/**
+ * Restrict course content access
+ */
 function restrict_course_content() {
     if (is_singular('courses')) {
         $product_id = get_post_meta(get_the_ID(), '_course_product_id', true);
@@ -56,7 +63,10 @@ function restrict_course_content() {
 }
 add_action('template_redirect', 'restrict_course_content');
 
-// Add custom menu item to WooCommerce My Account menu
+
+/**
+ * Add custom menu items to WooCommerce My Account menu
+ */
 function add_courses_my_account_menu_item( $items ) {
     // Rearrange the menu items and add the new item after "Dashboard"
     $new_items = array();
@@ -64,19 +74,27 @@ function add_courses_my_account_menu_item( $items ) {
         $new_items[ $key ] = $value;
         if ( $key === 'dashboard' ) {
             $new_items['courses'] = __( 'Courses', TEXTDOMAIN );
+            $new_items['consultation'] = __( 'Consultation', TEXTDOMAIN );
         }
     }
     return $new_items;
 }
 add_filter( 'woocommerce_account_menu_items', 'add_courses_my_account_menu_item' );
 
-// Add custom endpoint for the new menu item
-function add_courses_endpoint() {
-    add_rewrite_endpoint( 'courses', EP_ROOT | EP_PAGES );
-}
-add_action( 'init', 'add_courses_endpoint' );
 
-// Display content for the custom menu item
+/**
+ * Add custom endpoint for the new menu items
+ */
+function add_custom_endpoints() {
+    add_rewrite_endpoint( 'courses', EP_ROOT | EP_PAGES );
+    add_rewrite_endpoint( 'consultation', EP_ROOT | EP_PAGES );
+}
+add_action( 'init', 'add_custom_endpoints' );
+
+
+/**
+ * Display content for the Courses menu item
+ */
 function courses_endpoint_content() {
     $user_id = get_current_user_id();
     
@@ -116,38 +134,16 @@ function courses_endpoint_content() {
     }
     
     if ( ! empty( $purchased_courses ) ) {
-        echo '<div class="tpw-container mx-auto px-4 py-8">';
-            echo '<h2 class="tpw-text-2xl tpw-font-bold mb-6">' . __( 'Your Purchased Courses', TEXTDOMAIN ) . '</h2>';
-                echo '<div class="tpw-grid tpw-grid-cols-1 sm:tpw-grid-cols-2 lg:tpw-grid-cols-3 gap-6">';
-                    foreach ( $purchased_courses as $course ) {
-                        $thumbnail_url = get_the_post_thumbnail_url($course);
-                        $thumbnail_alt = get_post_meta ( get_post_thumbnail_id($course), '_wp_attachment_image_alt', true );
+        $template = plugin_dir_path( __FILE__ ) . 'templates/course-purchased.php';
 
-                        echo '<div class="tpw-bg-white tpw-shadow-md tpw-rounded-lg tpw-overflow-hidden">';
-                            echo '<img src="' . $thumbnail_url . '" alt="' . $thumbnail_alt . '" class="tpw-w-full tpw-h-48 tpw-object-cover">';
-                            echo '<div class="tpw-p-4">';
-                                echo '<h3 class="tpw-text-xl tpw-font-semibold mb-2">' . __( get_the_title($course), TEXTDOMAIN ) . '</h3>';
-                                echo '<a href="' . get_permalink($course) . '" class="tpw-text-blue-500 tpw-hover:underline">View Course</a>';
-                            echo '</div>
-                        </div>';
-                    } echo '
-                </div>
-            </div>';
-    } else {
-        echo '<p>' . __( 'You have not purchased any courses yet.', TEXTDOMAIN ) . '</p>';
+        if(file_exists($template)) {
+            load_template( $template, false, array(
+                'purchased_courses' =>  $purchased_courses
+            ) );
+        }
     }
 }
+
 add_action( 'woocommerce_account_courses_endpoint', 'courses_endpoint_content' );
 
-// Flush rewrite rules on plugin activation
-function courses_rewrite_flush() {
-    add_courses_endpoint();
-    flush_rewrite_rules();
-}
-register_activation_hook( __FILE__, 'courses_rewrite_flush' );
 
-// Flush rewrite rules on plugin deactivation
-function courses_rewrite_flush_deactivate() {
-    flush_rewrite_rules();
-}
-register_deactivation_hook( __FILE__, 'courses_rewrite_flush_deactivate' );
